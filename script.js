@@ -4,6 +4,7 @@ var ctx = canvas.getContext("2d");
 var boardSize = 600;
 var block = 3;
 var blockSize = boardSize / block; // 200px
+var currentPlayer = 1;
 
 function paintBoard() {
   ctx.beginPath();
@@ -40,8 +41,6 @@ function drawX(x, y) {
   ctx.stroke();
 }
 
-drawX(2, 2);
-
 function drawO(x, y) {
   ctx.beginPath();
 
@@ -55,6 +54,21 @@ function drawO(x, y) {
   ctx.stroke();
 }
 
-drawO(2, 1);
+canvas.addEventListener("click", (event) => {
+  const rect = canvas.getBoundingClientRect();
+
+  const position = {
+    x: Math.floor((event.clientX - rect.left) / blockSize),
+    y: Math.floor((event.clientY - rect.left) / blockSize),
+  };
+
+  if (currentPlayer === 1) {
+    drawX(position.x, position.y);
+  } else {
+    drawO(position.x, position.y);
+  }
+
+  currentPlayer *= -1;
+});
 
 paintBoard();
