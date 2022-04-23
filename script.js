@@ -8,15 +8,20 @@ var currentPlayer = 1;
 
 var game = [];
 
-for (let x = 0; x < block; x++) {
-  game.push([]);
+function initGame() {
+  ctx.clearRect(0, 0, boardSize, boardSize);
+  game = [];
+  for (let x = 0; x < block; x++) {
+    game.push([]);
 
-  for (let y = 0; y < block; y++) {
-    game[x].push(0);
+    for (let y = 0; y < block; y++) {
+      game[x].push(0);
+    }
   }
 }
 
 function paintBoard() {
+  initGame();
   ctx.beginPath();
   ctx.lineWidth = 3;
 
@@ -64,7 +69,56 @@ function drawO(x, y) {
   ctx.stroke();
 }
 
+function checkWin() {
+  let transversal = 0;
+  let transversalInvertida = 0;
+  for (let x = 0; x < block; x++) {
+    let vertical = 0;
+    let horizontal = 0;
+
+    transversal += game[x][x];
+    transversalInvertida += game[x][block - 1 - x];
+
+    for (let y = 0; y < block; y++) {
+      vertical += game[x][y];
+      horizontal += game[y][x];
+    }
+
+    if (vertical === block || vertical === -block) {
+      return true;
+    }
+
+    if (horizontal === block || horizontal === -block) {
+      return true;
+    }
+  }
+
+  if (transversal === block || transversal === -block) {
+    return true;
+  }
+
+  if (transversalInvertida === block || transversalInvertida === -block) {
+    return true;
+  }
+
+  return false;
+}
+
+function checkLost() {
+    for (let x = 0; x < block; x++) {
+        for (let y = 0; y < block; y++) {
+            if (game[x][y] === 0) { return false }
+        }
+    }
+
+    return true;
+}
+
 function play({ x, y }) {
+  if (currentPlayer === 0) {
+    paintBoard();
+    currentPlayer = 1;
+  }
   if (game[x][y] !== 0) {
     return;
   }
@@ -75,7 +129,16 @@ function play({ x, y }) {
   }
 
   game[x][y] = currentPlayer;
-  currentPlayer *= -1;
+
+  if (checkWin()) {
+    alert(`${currentPlayer < 0 ? "O" : "X"} ganhou`);
+    currentPlayer = 0;
+  } else if (checkLost()) {
+      alert('Deu velha');
+      currentPlayer = 0;
+  }  else {
+    currentPlayer *= -1;
+  }
 }
 
 canvas.addEventListener("click", (event) => {
