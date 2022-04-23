@@ -6,6 +6,16 @@ var block = 3;
 var blockSize = boardSize / block; // 200px
 var currentPlayer = 1;
 
+var game = [];
+
+for (let x = 0; x < block; x++) {
+  game.push([]);
+
+  for (let y = 0; y < block; y++) {
+    game[x].push(0);
+  }
+}
+
 function paintBoard() {
   ctx.beginPath();
   ctx.lineWidth = 3;
@@ -54,6 +64,20 @@ function drawO(x, y) {
   ctx.stroke();
 }
 
+function play({ x, y }) {
+  if (game[x][y] !== 0) {
+    return;
+  }
+  if (currentPlayer === 1) {
+    drawX(x, y);
+  } else {
+    drawO(x, y);
+  }
+
+  game[x][y] = currentPlayer;
+  currentPlayer *= -1;
+}
+
 canvas.addEventListener("click", (event) => {
   const rect = canvas.getBoundingClientRect();
 
@@ -62,13 +86,7 @@ canvas.addEventListener("click", (event) => {
     y: Math.floor((event.clientY - rect.left) / blockSize),
   };
 
-  if (currentPlayer === 1) {
-    drawX(position.x, position.y);
-  } else {
-    drawO(position.x, position.y);
-  }
-
-  currentPlayer *= -1;
+  play(position);
 });
 
 paintBoard();
