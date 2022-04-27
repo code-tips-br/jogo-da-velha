@@ -5,8 +5,6 @@ import {
   set,
   get,
   remove,
-  onChildAdded,
-  onChildChanged,
   onValue,
   push,
   query,
@@ -26,15 +24,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase();
 
-var canvas = document.getElementById("jogo");
+var canvas = document.getElementById("game");
 var ctx = canvas.getContext("2d");
 
 var boardSize = 600;
 var block = 3;
 var blockSize = boardSize / block; // 200px
 var name = "";
-
-var game = [];
 
 var currentGame = null;
 var currentKey = null;
@@ -87,17 +83,33 @@ async function init() {
       console.log("P1", currentGame);
       jQuery("#newGame").hide();
       jQuery("#games").hide();
-      jQuery("#jogo").show();
+      jQuery("#game").show();
 
-      jQuery("#name").empty()
+      jQuery("#name").empty();
       jQuery("#name").append(
         `${currentGame.player1} (${
           (currentGame.win && currentGame.win.filter((f) => f === 1).length) ||
+          0
+        }) x ${currentGame.player2 || "???"} (${
+          (currentGame.win && currentGame.win.filter((f) => f === -1).length) ||
           0
         })`
       );
 
       paintBoard();
+
+      if (currentGame.winner === "nothing") {
+        alert(`Empatou`);
+        if (currentGame.currentPlayer === 1) {
+          jQuery("#resetGame").show();
+        }
+      } else if (currentGame.winner) {
+        alert(`O jogador ${currentGame.winner} ganhou`);
+        if (currentGame.currentPlayer === 1) {
+          jQuery("#resetGame").show();
+        }
+      }
+
     }
   );
 
@@ -112,25 +124,40 @@ async function init() {
       console.log("P2", currentGame);
       jQuery("#newGame").hide();
       jQuery("#games").hide();
-      jQuery("#jogo").show();
+      jQuery("#game").show();
 
-      jQuery("#name").empty()
+      jQuery("#name").empty();
       jQuery("#name").append(
         `${currentGame.player1} (${
+          (currentGame.win && currentGame.win.filter((f) => f === 1).length) ||
+          0
+        }) x ${currentGame.player2 || "???"} (${
           (currentGame.win && currentGame.win.filter((f) => f === -1).length) ||
           0
         })`
       );
 
       paintBoard();
+
+      if (currentGame.winner === "nothing") {
+        alert(`Empatou`);
+        if (currentGame.currentPlayer === -1) {
+          jQuery("#resetGame").show();
+        }
+      } else if (currentGame.winner) {
+        alert(`O jogador ${currentGame.winner} ganhou`);
+        if (currentGame.currentPlayer === -1) {
+          jQuery("#resetGame").show();
+        }
+      }
     }
   );
 
-  jQuery("#newGame").click(async () => {
+  jQuery("#newGame").click(() => {
     const gameListRef = ref(db, "games");
     const newGameRef = push(gameListRef);
 
-    initGame();
+    const game = initGame();
 
     set(newGameRef, {
       player1: name,
@@ -140,10 +167,24 @@ async function init() {
       game,
     });
   });
+
+  jQuery("#resetGame").click(() => {
+    const gameListRef = ref(db, `games/${currentKey}`);
+
+    const game = initGame();
+    delete currentGame.winner;
+
+    set(gameListRef, {
+      ...currentGame,
+      game,
+    });
+
+    jQuery("#resetGame").hide();
+  });
 }
 
 function initGame() {
-  game = [];
+  const game = [];
   for (let x = 0; x < block; x++) {
     game.push([]);
 
@@ -151,6 +192,8 @@ function initGame() {
       game[x].push(0);
     }
   }
+
+  return game;
 }
 
 function paintBoard() {
@@ -181,37 +224,6 @@ function paintBoard() {
   }
 
   ctx.stroke();
-
-  if (checkWin()) {
-    setTimeout(
-      alert(
-        `O jogador ${
-          currentGame.currentPlayer === 1
-            ? currentGame.player2
-            : currentGame.player1
-        } ganhou`
-      ),
-      500
-    );
-
-    if (
-      (currentGame.currentPlayer === 1 && currentGame.player1 === name) ||
-      (currentGame.currentPlayer === 2 && currentGame.player2 === name)
-    ) {
-      initGame();
-      if (!currentGame.win) {
-        currentGame.win = [];
-      }
-      currentGame.win.push(currentGame.currentPlayer * -1);
-      const gameListRef = ref(db, `games/${currentKey}`);
-      set(gameListRef, {
-        ...currentGame,
-        game,
-      });
-    }
-  } else if (checkLost()) {
-    alert("Deu velha");
-  }
 }
 
 function drawX(x, y) {
@@ -292,13 +304,17 @@ function checkLost() {
   return true;
 }
 
-function play({ x, y }) {
+async function play({ x, y }) {
   if (currentGame.game[x][y] !== 0) {
     return;
   }
 
   if (currentGame.currentPlayer === 0) {
     paintBoard();
+    return;
+  }
+
+  if (currentGame.winner) {
     return;
   }
 
@@ -312,10 +328,46 @@ function play({ x, y }) {
   }
 
   currentGame.game[x][y] = currentGame.currentPlayer;
+  const gameRef = ref(db, `games/${currentKey}`);
+  await set(gameRef, currentGame);
+  if (checkWin()) {
+    if (
+      (currentGame.currentPlayer === 1 && currentGame.player1 === name) ||
+      (currentGame.currentPlayer === -1 && currentGame.player2 === name)
+    ) {
+      if (!currentGame.win) {
+        currentGame.win = [];
+      }
+      currentGame.win.push(currentGame.currentPlayer);
+      const gameListRef = ref(db, `games/${currentKey}`);
+      set(gameListRef, {
+        ...currentGame,
+        winner:
+          currentGame.currentPlayer === 1
+            ? currentGame.player1
+            : currentGame.player2,
+      });
+    }
+
+    return;
+  } else if (checkLost()) {
+    if (!currentGame.win) {
+      currentGame.win = [];
+    }
+    currentGame.win.push(1);
+    currentGame.win.push(-1);
+    const gameListRef = ref(db, `games/${currentKey}`);
+    set(gameListRef, {
+      ...currentGame,
+      winner: "nothing",
+    });
+
+    return;
+  }
+
   currentGame.currentPlayer *= -1;
 
-  const gameRef = ref(db, `games/${currentKey}`);
-  set(gameRef, currentGame);
+  await set(gameRef, currentGame);
 }
 
 canvas.addEventListener("click", (event) => {
@@ -323,7 +375,7 @@ canvas.addEventListener("click", (event) => {
 
   const position = {
     x: Math.floor((event.clientX - rect.left) / blockSize),
-    y: Math.floor((event.clientY - rect.left) / blockSize),
+    y: Math.floor((event.clientY - rect.top) / blockSize),
   };
 
   play(position);
